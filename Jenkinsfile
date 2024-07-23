@@ -1,67 +1,79 @@
 pipeline {
-    agent any
-   
-    environment{
-        SCANNER_HOME= tool 'sonar-scanner'
+  agent {
+    docker {
+      image 'node:14' // Use the official Node.js Docker image
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // Mount Docker socket to access the host's Docker daemon
     }
-
-    stages {
-        stage('git-checkout') {
-            steps {
-                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/jaiswaladi246/to-do-app.git'
-            }
-        }
-
-    stage('Sonar Analysis') {
-            steps {
-                   sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.url=URL_OF_SONARQUBE -Dsonar.login=TOKEN_OF_SONARQUBE -Dsonar.projectName=to-do-app \
-                   -Dsonar.sources=. \
-                   -Dsonar.projectKey=to-do-app '''
-               }
-            }
-           
-		stage('OWASP Dependency Check') {
-            steps {
-               dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'DP'
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-            }
-        }
-     
-
-         stage('Docker Build') {
-            steps {
-               script{
-                   withDockerRegistry(credentialsId: '9ea0c4b0-721f-4219-be62-48a976dbeec0') {
-                    sh "docker build -t  todoapp:latest -f docker/Dockerfile . "
-                    sh "docker tag todoapp:latest username/todoapp:latest "
-                 }
-               }
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-               script{
-                   withDockerRegistry(credentialsId: '9ea0c4b0-721f-4219-be62-48a976dbeec0') {
-                    sh "docker push  username/todoapp:latest "
-                 }
-               }
-            }
-        }
-        stage('trivy') {
-            steps {
-               sh " trivy username/todoapp:latest"
-            }
-        }
-		stage('Deploy to Docker') {
-            steps {
-               script{
-                   withDockerRegistry(credentialsId: '9ea0c4b0-721f-4219-be62-48a976dbeec0') {
-                    sh "docker run -d --name to-do-app -p 4000:4000 username/todoapp:latest "
-                 }
-               }
-            }
-        }
-
+  }
+  stages {
+    stage('Checkout') {
+      steps {
+        sh 'echo passed'
+        // Uncomment the following line to enable source code checkout
+        // git branch: 'main', url: 'https://github.com/uvalentino/End-to-end-CI-CD-pipeline-with-Jenkins.git'
+      }
     }
+    stage('Install Dependencies') {
+      steps {
+        sh 'npm install'
+      }
+    }
+    stage('Build and Test') {
+      steps {
+        sh 'npm run build' // Modify if you have a different build script
+        sh 'npm test' // Modify if you have a different test script
+      }
+    }
+    stage('Static Code Analysis') {
+      environment {
+        SONAR_URL = "http://15.156.193.96:9000"
+      }
+      steps {
+        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
+          sh 'npx sonar-scanner -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+        }
+      }
+    }
+    stage('Build and Push Docker Image') {
+      environment {
+        DOCKER_IMAGE = "uvalentino/ultimate-cicd:${BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+      }
+      steps {
+        script {
+          sh 'docker build -t ${DOCKER_IMAGE} .'
+          def dockerImage = docker.image("${DOCKER_IMAGE}")
+          docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
+            dockerImage.push()
+          }
+        }
+      }
+    }
+    stage('Trivy') {
+      steps {
+        sh "trivy uvalentino/ultimate-cicd:${BUILD_NUMBER}"
+      }
+    }
+    stage('Run Docker Container') {
+      steps {
+        script {
+          def containerName = "my-app-container"
+          def dockerImage = "uvalentino/ultimate-cicd:${BUILD_NUMBER}"
+
+          // Stop and remove the existing container if it exists
+          sh """
+            if [ \$(docker ps -q -f name=${containerName}) ]; then
+              docker stop ${containerName}
+              docker rm ${containerName}
+            fi
+          """
+
+          // Run the new container
+          sh """
+            docker run -d --name ${containerName} -p 9090:3000 ${dockerImage} // Assuming your Node.js app runs on port 3000
+          """
+        }
+      }
+    }
+  }
 }

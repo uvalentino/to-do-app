@@ -9,7 +9,7 @@ pipeline {
     stage('Checkout') {
       steps {
         sh 'echo passed'
-        git branch: 'main', url: 'https://github.com/uvalentino/to-do-app.git'
+        // git branch: 'main', url: 'https://github.com/uvalentino/to-do-app.git'
       }
     }
     stage('Install Dependencies') {

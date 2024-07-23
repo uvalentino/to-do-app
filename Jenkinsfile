@@ -9,8 +9,7 @@ pipeline {
     stage('Checkout') {
       steps {
         sh 'echo passed'
-        // Uncomment the following line to enable source code checkout
-        // git branch: 'main', url: 'https://github.com/uvalentino/End-to-end-CI-CD-pipeline-with-Jenkins.git'
+        git branch: 'main', url: 'https://github.com/uvalentino/to-do-app.git'
       }
     }
     stage('Install Dependencies') {
@@ -26,7 +25,7 @@ pipeline {
     }
     stage('Static Code Analysis') {
       environment {
-        SONAR_URL = "http://15.156.193.96:9000"
+        SONAR_URL = "http://99.79.48.25:9000"
       }
       steps {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {

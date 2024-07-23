@@ -35,7 +35,7 @@ pipeline {
     }
     stage('Build and Push Docker Image') {
       environment {
-        DOCKER_IMAGE = "uvalentino/ultimate-cicd:${BUILD_NUMBER}"
+        DOCKER_IMAGE = "uvalentino/to-do-app:${BUILD_NUMBER}"
         REGISTRY_CREDENTIALS = credentials('docker-cred')
       }
       steps {
@@ -50,14 +50,14 @@ pipeline {
     }
     stage('Trivy') {
       steps {
-        sh "trivy uvalentino/ultimate-cicd:${BUILD_NUMBER}"
+        sh "trivy uvalentino/to-do-app:${BUILD_NUMBER}"
       }
     }
     stage('Run Docker Container') {
       steps {
         script {
-          def containerName = "my-app-container"
-          def dockerImage = "uvalentino/ultimate-cicd:${BUILD_NUMBER}"
+          def containerName = "to-do-app-container"
+          def dockerImage = "uvalentino/to-do-app:${BUILD_NUMBER}"
 
           // Stop and remove the existing container if it exists
           sh """
@@ -69,7 +69,7 @@ pipeline {
 
           // Run the new container
           sh """
-            docker run -d --name ${containerName} -p 9090:3000 ${dockerImage} // Assuming your Node.js app runs on port 3000
+            docker run -d --name ${containerName} -p 9090:8080 ${dockerImage} 
           """
         }
       }
